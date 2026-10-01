@@ -1,0 +1,10 @@
+{
+  "name": "IoT Automation",
+  "short_name": "IoT Automation",
+  "description": "AI + IoT automation company in Ahmedabad, Gujarat",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0b0f1a",
+  "theme_color": "#0b0f1a",
+  "icons": [{ "src": "/apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }]
+}

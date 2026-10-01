@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://iot-automation.co.in/sitemap.xml

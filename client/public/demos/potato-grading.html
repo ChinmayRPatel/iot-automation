@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AI Potato Grading Machine Simulation | IoT Automation, Ahmedabad</title>
+<meta name="description" content="Interactive simulation of an AI machine-vision potato grading and sorting line by IoT Automation, Ahmedabad, Gujarat: size, weight and defect detection with air-jet sorting.">
+<link rel="canonical" href="https://iot-automation.co.in/demos/potato-grading.html">
+<style>
+:root{--bg:#0b1020;--panel:#131a2e;--line:#243150;--txt:#e5e9f5;--mut:#8b95b3;--acc:#38bdf8}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--txt);font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:14px}
+.wrap{max-width:1200px;margin:0 auto;padding:12px}
+h1{font-size:19px;margin:4px 0 2px}
+h2{font-size:14px;margin:0 0 8px;color:#cbd5e1;letter-spacing:.3px}
+.sub{color:var(--mut);font-size:12px;margin-bottom:10px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px}
+canvas{display:block;width:100%;border-radius:8px}
+#sim{background:#0e1528}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;align-items:center}
+button{background:#1e293b;color:var(--txt);border:1px solid #334155;border-radius:8px;padding:7px 11px;font-size:13px;cursor:pointer}
+button:hover{border-color:var(--acc)}
+button.on{background:#0c4a6e;border-color:var(--acc)}
+.seg{display:inline-flex;gap:0}
+.seg button{border-radius:0}.seg button:first-child{border-radius:8px 0 0 8px}.seg button:last-child{border-radius:0 8px 8px 0}
+.chk{color:var(--mut);font-size:13px;display:flex;align-items:center;gap:4px}
+.grid{display:grid;grid-template-columns:1fr;gap:10px}
+@media(min-width:900px){.grid{grid-template-columns:300px 1fr 1fr}}
+.grid .card{margin-bottom:0}
+.sl{margin-bottom:9px}
+.sl .lb{display:flex;justify-content:space-between;font-size:12px;color:var(--mut);margin-bottom:2px}
+.sl .lb b{color:var(--txt);font-weight:600}
+input[type=range]{width:100%;accent-color:var(--acc)}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px}
+.kpi{background:#0e1528;border:1px solid var(--line);border-radius:8px;padding:6px}
+.kpi .v{font-size:17px;font-weight:700}
+.kpi .k{font-size:10px;color:var(--mut);text-transform:uppercase;letter-spacing:.4px}
+.bar{margin-bottom:7px}
+.bar .t{display:flex;justify-content:space-between;font-size:12px;margin-bottom:2px}
+.bar .tr{height:9px;background:#0e1528;border-radius:5px;overflow:hidden}
+.bar .f{height:100%;border-radius:5px;transition:width .3s}
+.reasons{font-size:12px;color:var(--mut);margin-top:6px;line-height:1.6}
+#camtxt{font-size:12px;margin-top:8px;line-height:1.55}
+.badge{display:inline-block;padding:1px 8px;border-radius:10px;font-weight:700;font-size:12px;color:#0b1020}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th,td{text-align:left;padding:5px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th{color:var(--mut);font-weight:500}
+.tblwrap{overflow-x:auto}
+.ok{color:#22c55e}.bad{color:#ef4444}
+.how{font-size:13px;color:#cbd5e1;line-height:1.55}
+.how li{margin-bottom:4px}
+.mut{color:var(--mut)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>🥔 Potato Grading Line — Machine Vision Simulation</h1>
+  <div class="sub">Hopper → singulator &amp; roller table → camera inspection → air-jet ejection → grade bins. Adjust the settings and watch how grading accuracy and output change.</div>
+
+  <div class="card">
+    <canvas id="sim"></canvas>
+    <div class="btns">
+      <button id="play">⏸ Pause</button>
+      <button id="reset">↺ Reset</button>
+      <button id="fdef">+ Drop defective potato</button>
+      <span class="seg"><button data-m="1" class="on">1×</button><button data-m="2">2×</button><button data-m="4">4×</button></span>
+      <label class="chk"><input type="checkbox" id="lab" checked> Grade labels</label>
+    </div>
+  </div>
+
+  <div class="grid">
+    <div class="card">
+      <h2>⚙️ Line settings</h2>
+      <div id="sliders"></div>
+    </div>
+    <div class="card">
+      <h2>📷 Vision camera (CAM-01)</h2>
+      <canvas id="cam"></canvas>
+      <div id="camtxt"></div>
+    </div>
+    <div class="card">
+      <h2>📊 Production stats</h2>
+      <div class="kpis" id="kpis"></div>
+      <div id="bars"></div>
+      <div class="reasons" id="reasons"></div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:10px">
+    <h2>🧾 Inspection log (latest 10)</h2>
+    <div class="tblwrap"><table id="log"></table></div>
+  </div>
+
+  <div class="card">
+    <h2>How this line works</h2>
+    <ol class="how">
+      <li><b>Hopper:</b> bulk potatoes are fed at the set feed rate.</li>
+      <li><b>Singulator + roller table:</b> keeps a minimum gap so potatoes pass one at a time, and rollers spin them so the camera sees the full surface.</li>
+      <li><b>Vision chamber:</b> LED-lit camera measures width (the grading dimension, like a square-mesh sieve), length, shape ratio and estimated weight, and detects defects: bruise, greening, rot, crack, scab, sprout.</li>
+      <li><b>Decision logic:</b> any defect → Reject; length/width ratio above limit → Reject (misshapen); width &lt; 35 mm → Reject (undersize); otherwise Large / Medium / Small by the size boundaries.</li>
+      <li><b>Air-jet ejectors:</b> fire when the potato reaches the bin for its grade. Small potatoes ride to the belt end.</li>
+      <li><b>Accuracy:</b> the simulation knows each potato's true condition, so it compares the camera's decision against the truth. Lower the camera accuracy to see missed defects and false alarms.</li>
+    </ol>
+    <div class="mut" style="font-size:12px">Scale: 1 px = 2 mm. Weight is estimated from an ellipsoid volume × 1.08 g/cm³ (typical potato density).</div>
+  </div>
+</div>
+
+<script>
+// ---------- setup ----------
+const cv=document.getElementById('sim'),cx=cv.getContext('2d');
+const W=920,H=380;
+const cam=document.getElementById('cam'),cc=cam.getContext('2d');
+const CW=300,CH=200;
+function fit(){const d=window.devicePixelRatio||1;cv.width=W*d;cv.height=H*d;cx.setTransform(d,0,0,d,0,0);cam.width=CW*d;cam.height=CH*d;cc.setTransform(d,0,0,d,0,0);}
+fit();
+
+const BY=178,BX0=30,BX1=815,ROLL0=128,ROLL1=382,CAM0=235,CAM1=365,CAMC=300,PX=0.5,SPAWN_X=88;
+const BINS={
+  reject:{x:470,col:'#ef4444',name:'REJECT'},
+  large:{x:580,col:'#22c55e',name:'LARGE'},
+  medium:{x:690,col:'#38bdf8',name:'MEDIUM'},
+  small:{x:868,col:'#f59e0b',name:'SMALL'}
+};
+const GCOL={reject:'#ef4444',large:'#22c55e',medium:'#38bdf8',small:'#f59e0b'};
+const TYPES=['bruise','greening','rot','crack','scab','sprout'];
+
+const st={speed:0.2,feed:60,defect:20,acc:95,t1:45,t2:65,shape:1.55,mul:1,run:true,labels:true,forceDef:0};
+let ps,simT,spawnAcc,beltOff,flash,jets,nid,lastInsp,log,stats,camRot=0,uiT=0;
+
+function reset(){
+  ps=[];simT=0;spawnAcc=0.8;beltOff=0;flash=0;jets={reject:0,large:0,medium:0};nid=1;lastInsp=null;log=[];
+  stats={total:0,correct:0,reasons:{defect:0,misshapen:0,undersize:0},missed:0,falseAlarm:0};
+  for(const k in BINS){BINS[k].count=0;BINS[k].kg=0;BINS[k].pile=[];}
+}
+reset();
+
+// ---------- helpers ----------
+const rand=(a,b)=>a+Math.random()*(b-a);
+const pick=a=>a[Math.floor(Math.random()*a.length)];
+function gauss(m,s){let u=0,v=0;while(!u)u=Math.random();while(!v)v=Math.random();return m+s*Math.sqrt(-2*Math.log(u))*Math.cos(2*Math.PI*v);}
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+
+function makeDefect(){
+  const d={type:pick(TYPES),u:rand(-.55,.55),th:rand(0,6.28),s:rand(.18,.33)};
+  if(d.type==='scab'){d.dots=[];for(let i=0;i<8;i++)d.dots.push([rand(-1,1),rand(-1,1),rand(.3,.7)]);}
+  if(d.type==='crack'){d.zz=[];for(let i=0;i<5;i++)d.zz.push(rand(-.35,.35));}
+  return d;
+}
+function makePotato(){
+  const w=clamp(gauss(54,10),28,88);
+  const mis=Math.random()<0.07;
+  const el=mis?rand(1.6,1.95):rand(1.1,1.45);
+  const L=w*el;
+  const irr=[];for(let i=0;i<16;i++)irr.push((Math.random()-.5)*(mis?0.22:0.08));
+  const eyes=[];const ne=3+Math.floor(Math.random()*3);for(let i=0;i<ne;i++)eyes.push({u:rand(-.75,.75),th:rand(0,6.28)});
+  const defs=[];
+  if(st.forceDef>0||Math.random()<st.defect/100){
+    if(st.forceDef>0)st.forceDef--;
+    const n=Math.random()<.25?2:1;for(let i=0;i<n;i++)defs.push(makeDefect());
+  }
+  const vol=4/3*Math.PI*(L/2)*(w/2)*(w*0.45)/1000;
+  return {id:nid++,w,L,el,irr,eyes,defs,g:vol*1.08,hue:rand(30,40),light:rand(52,62),
+    x:SPAWN_X,y:98,vx:0,vy:0,rot:rand(0,6.28),state:'drop',inspected:false};
+}
+function grade(w,el,hasDef){
+  if(hasDef)return{g:'reject',r:'defect'};
+  if(el>st.shape)return{g:'reject',r:'misshapen'};
+  if(w<35)return{g:'reject',r:'undersize'};
+  if(w>=st.t2)return{g:'large'};
+  if(w>=st.t1)return{g:'medium'};
+  return{g:'small'};
+}
+function inspect(p){
+  const mw=p.w+gauss(0,1.0),mL=p.L+gauss(0,1.5),mel=mL/mw;
+  const det=p.defs.filter(()=>Math.random()<st.acc/100).map(d=>Object.assign({},d));
+  const missed=p.defs.length-det.length;
+  let fa=false;
+  if(Math.random()<(100-st.acc)/100*0.4){const d=makeDefect();d.type='bruise';d.fp=true;d.s=.15;det.push(d);fa=true;}
+  const mg=p.g*(1+gauss(0,0.03));
+  const r=grade(mw,mel,det.length>0);
+  const t=grade(p.w,p.el,p.defs.length>0);
+  p.m={w:mw,L:mL,el:mel,g:mg,det,grade:r.g,reason:r.r,missed,fa};
+  p.trueGrade=t.g;p.trueReason=t.r;p.inspected=true;
+  flash=.25;lastInsp=p;
+  log.unshift(p);if(log.length>10)log.length=10;
+}
+function pileTop(b){return 352-Math.floor(Math.min(b.count,42)/6)*9-4;}
+function land(p){
+  const b=BINS[p.bin];b.count++;b.kg+=p.g/1000;stats.total++;
+  if(p.bin===p.trueGrade)stats.correct++;
+  if(p.bin==='reject'&&p.m.reason)stats.reasons[p.m.reason]++;
+  if(p.m.missed>0&&p.bin!=='reject')stats.missed++;
+  if(p.m.fa&&p.trueGrade!=='reject')stats.falseAlarm++;
+  if(b.pile.length<42)b.pile.push({hue:p.hue,light:p.light,r:clamp(p.w*PX*0.3,5,9),def:p.defs.length>0});
+  p.state='done';
+}
+
+// ---------- update ----------
+function update(dt){
+  simT+=dt;camRot+=dt*1.2;
+  const v=st.speed*1000*PX;
+  beltOff=(beltOff+v*dt)%20;
+  spawnAcc+=dt*st.feed/60;
+  let nearest=1e9;for(const p of ps)if(p.state==='belt'||p.state==='drop')nearest=Math.min(nearest,p.x-p.L*PX/2);
+  if(spawnAcc>=1){
+    if(nearest>SPAWN_X+32){ps.push(makePotato());spawnAcc-=1;}
+    else spawnAcc=Math.min(spawnAcc,1.2); // singulator holds potatoes back
+  }
+  for(const p of ps){
+    const ry=p.w*PX/2;
+    if(p.state!=='fall')p.rot+=dt*(p.x<ROLL1?4.5:0.4);
+    if(p.state==='drop'){
+      p.vy+=900*dt;p.y+=p.vy*dt;p.x+=v*dt*0.4;
+      const ty=BY-ry-(p.x>ROLL0&&p.x<ROLL1?3:0);
+      if(p.y>=ty){p.y=ty;p.state='belt';}
+    }else if(p.state==='belt'){
+      p.x+=v*dt;
+      const onR=p.x>ROLL0&&p.x<ROLL1;
+      p.y=BY-ry-(onR?3+Math.abs(Math.sin(p.x*0.24))*1.2:0);
+      if(!p.inspected&&p.x>=CAMC)inspect(p);
+      if(p.inspected){
+        const g=p.m.grade;
+        if(g!=='small'&&p.x>=BINS[g].x-6){jets[g]=.25;p.state='fall';p.vx=v*0.35;p.vy=-110;p.bin=g;}
+        else if(p.x>BX1-4){p.state='fall';p.vx=v;p.vy=-15;p.bin='small';}
+      }
+    }else if(p.state==='fall'){
+      p.vy+=1000*dt;p.x+=p.vx*dt;p.y+=p.vy*dt;p.rot+=dt*3;
+      const b=BINS[p.bin];
+      if(p.y>250){
+        if(p.x>b.x+28){p.x=b.x+28;p.vx*=-.3;}
+        if(p.x<b.x-28){p.x=b.x-28;p.vx*=-.3;}
+      }
+      if(p.y>=pileTop(b))land(p);
+    }
+  }
+  ps=ps.filter(p=>p.state!=='done');
+  for(const k in jets)jets[k]=Math.max(0,jets[k]-dt);
+  flash=Math.max(0,flash-dt);
+}
+
+// ---------- drawing ----------
+function potatoPath(c,p,rx,ry){
+  const N=p.irr.length,pts=[];
+  for(let i=0;i<N;i++){const a=i/N*Math.PI*2,f=1+p.irr[i];pts.push([Math.cos(a)*rx*f,Math.sin(a)*ry*f]);}
+  c.beginPath();
+  const z=pts[N-1],a0=pts[0];c.moveTo((z[0]+a0[0])/2,(z[1]+a0[1])/2);
+  for(let i=0;i<N;i++){const a=pts[i],b=pts[(i+1)%N];c.quadraticCurveTo(a[0],a[1],(a[0]+b[0])/2,(a[1]+b[1])/2);}
+  c.closePath();
+}
+function featPos(f,rx,ry,rot){const ph=f.th+rot;return{x:f.u*rx,y:Math.cos(ph)*ry*.82,vis:Math.sin(ph)};}
+function drawPotato(c,p,x,y,s,rot){
+  const rx=p.L/2*s,ry=p.w/2*s;
+  c.save();c.translate(x,y);
+  potatoPath(c,p,rx,ry);
+  const g=c.createRadialGradient(-rx*.3,-ry*.45,1,0,0,Math.max(rx,ry)*1.1);
+  g.addColorStop(0,`hsl(${p.hue},50%,${p.light+14}%)`);
+  g.addColorStop(1,`hsl(${p.hue-4},42%,${p.light-14}%)`);
+  c.fillStyle=g;c.fill();
+  c.strokeStyle=`hsl(${p.hue-5},40%,${p.light-25}%)`;c.lineWidth=Math.max(.6,s*.4);c.stroke();
+  c.save();potatoPath(c,p,rx,ry);c.clip();
+  for(const e of p.eyes){const q=featPos(e,rx,ry,rot);if(q.vis<=0)continue;
+    c.fillStyle='rgba(90,60,30,.55)';c.beginPath();c.ellipse(q.x,q.y,Math.max(.7,s*.9),Math.max(.4,s*.9*q.vis),0,0,7);c.fill();}
+  for(const d of p.defs)drawDefect(c,d,rx,ry,rot,s);
+  c.restore();
+  c.restore();
+}
+function drawDefect(c,d,rx,ry,rot,s){
+  const q=featPos(d,rx,ry,rot);if(q.vis<=0)return;
+  const R=d.s*ry,Ry=R*(.35+.65*q.vis);
+  c.save();c.translate(q.x,q.y);
+  if(d.type==='bruise'){c.fillStyle='rgba(75,30,55,.72)';c.beginPath();c.ellipse(0,0,R,Ry,0,0,7);c.fill();}
+  else if(d.type==='greening'){const g=c.createRadialGradient(0,0,0,0,0,R*1.3);g.addColorStop(0,'rgba(70,150,40,.85)');g.addColorStop(1,'rgba(70,150,40,0)');c.fillStyle=g;c.beginPath();c.ellipse(0,0,R*1.3,Ry*1.3,0,0,7);c.fill();}
+  else if(d.type==='rot'){c.fillStyle='rgba(45,28,10,.9)';c.beginPath();c.ellipse(0,0,R,Ry,0,0,7);c.fill();c.strokeStyle='rgba(20,10,0,.9)';c.lineWidth=Math.max(.6,s*.5);c.stroke();c.fillStyle='rgba(120,100,60,.5)';c.beginPath();c.ellipse(-R*.2,-Ry*.2,R*.3,Ry*.3,0,0,7);c.fill();}
+  else if(d.type==='crack'){c.strokeStyle='#2b1a08';c.lineWidth=Math.max(.8,s*.7);c.beginPath();const n=d.zz.length;for(let i=0;i<n;i++){const xx=-R*1.3+i*(2.6*R/(n-1)),yy=d.zz[i]*Ry*2;i?c.lineTo(xx,yy):c.moveTo(xx,yy);}c.stroke();}
+  else if(d.type==='scab'){c.fillStyle='rgba(95,62,28,.9)';for(const t of d.dots){c.beginPath();c.ellipse(t[0]*R,t[1]*Ry,t[2]*R*.35,t[2]*Ry*.35,0,0,7);c.fill();}}
+  else if(d.type==='sprout'){c.fillStyle='#ead7ff';c.strokeStyle='#a78bfa';c.lineWidth=Math.max(.5,s*.3);c.beginPath();c.ellipse(0,-Ry*.3,R*.35,Ry*.9,-.4,0,7);c.fill();c.stroke();}
+  c.restore();
+}
+function hopperPile(){
+  const pts=[[62,40,9],[80,36,10],[100,38,9],[118,40,8],[70,56,9],[90,54,10],[108,58,8],[82,72,9],[96,74,8],[88,88,7]];
+  for(const [x,y,r] of pts){const g=cx.createRadialGradient(x-3,y-3,1,x,y,r);g.addColorStop(0,'hsl(36,50%,68%)');g.addColorStop(1,'hsl(32,42%,42%)');cx.fillStyle=g;cx.beginPath();cx.ellipse(x,y,r*1.2,r,.3,0,7);cx.fill();}
+}
+function label(t,x,y,col='#94a3b8',sz=11,al='center',wt=''){cx.fillStyle=col;cx.font=`${wt} ${sz}px system-ui,sans-serif`;cx.textAlign=al;cx.fillText(t,x,y);}
+
+function draw(){
+  const bg=cx.createLinearGradient(0,0,0,H);bg.addColorStop(0,'#0f172a');bg.addColorStop(1,'#0a0f1d');
+  cx.fillStyle=bg;cx.fillRect(0,0,W,H);
+  cx.fillStyle='#101a31';cx.fillRect(0,362,W,18);
+  // legs
+  cx.fillStyle='#2a3650';for(const lx of [50,200,330,400,760])cx.fillRect(lx,BY+12,6,362-BY-12);
+  // hopper
+  cx.save();cx.beginPath();cx.moveTo(40,25);cx.lineTo(136,25);cx.lineTo(102,96);cx.lineTo(74,96);cx.closePath();
+  cx.fillStyle='#1c2640';cx.fill();cx.clip();hopperPile();cx.restore();
+  cx.strokeStyle='#64748b';cx.lineWidth=2;cx.beginPath();cx.moveTo(40,25);cx.lineTo(74,96);cx.moveTo(136,25);cx.lineTo(102,96);cx.stroke();
+  // singulator gate
+  cx.fillStyle='#475569';cx.fillRect(116,BY-40,5,26);
+  label('① Hopper / feeder',88,16);
+  // chamber back
+  cx.fillStyle='rgba(56,189,248,.06)';cx.fillRect(CAM0,72,CAM1-CAM0,BY-72);
+  const led=cx.createLinearGradient(0,74,0,110);led.addColorStop(0,'rgba(255,255,255,.18)');led.addColorStop(1,'rgba(255,255,255,0)');
+  cx.fillStyle=led;cx.fillRect(CAM0,74,CAM1-CAM0,40);
+  cx.fillStyle='#f8fafc';cx.fillRect(CAM0+6,74,34,3);cx.fillRect(CAM1-40,74,34,3);
+  // belt
+  cx.fillStyle='#1f2937';cx.beginPath();cx.roundRect(BX0,BY,BX1-BX0,12,6);cx.fill();
+  cx.strokeStyle='#4b5563';cx.lineWidth=1.5;
+  for(let x=BX0+10+beltOff;x<BX1-8;x+=20){if(x>ROLL0-4&&x<ROLL1+4)continue;cx.beginPath();cx.moveTo(x,BY+1);cx.lineTo(x,BY+5);cx.stroke();}
+  for(const px of [BX0+6,BX1-6]){cx.fillStyle='#64748b';cx.beginPath();cx.arc(px,BY+6,7,0,7);cx.fill();cx.fillStyle='#1e293b';cx.beginPath();cx.arc(px,BY+6,2.5,0,7);cx.fill();}
+  // rollers
+  const ra=simT*st.speed*40;
+  for(let x=ROLL0;x<ROLL1;x+=13){cx.fillStyle='#64748b';cx.beginPath();cx.arc(x,BY+2,5.5,0,7);cx.fill();
+    cx.strokeStyle='#1e293b';cx.lineWidth=1.2;cx.beginPath();cx.moveTo(x,BY+2);cx.lineTo(x+Math.cos(ra)*5,BY+2+Math.sin(ra)*5);cx.stroke();}
+  label('② Singulator + roller table',255,212);
+  label('rollers spin potatoes 360° for full-surface imaging',255,226,'#64748b',10);
+  // air manifold + nozzles
+  cx.strokeStyle='#475569';cx.lineWidth=3;cx.beginPath();cx.moveTo(BINS.reject.x,84);cx.lineTo(BINS.medium.x,84);cx.stroke();
+  for(const k of ['reject','large','medium']){const x=BINS[k].x;
+    cx.strokeStyle='#475569';cx.lineWidth=2;cx.beginPath();cx.moveTo(x,84);cx.lineTo(x,94);cx.stroke();
+    cx.fillStyle='#94a3b8';cx.fillRect(x-6,94,12,12);cx.beginPath();cx.moveTo(x-4,106);cx.lineTo(x+4,106);cx.lineTo(x,112);cx.closePath();cx.fill();
+    cx.fillStyle=jets[k]>0?'#f87171':'#7f1d1d';cx.beginPath();cx.arc(x-18,BY-3,2.5,0,7);cx.fill(); // trigger sensor
+    if(jets[k]>0){const a=jets[k]/.25;cx.strokeStyle=`rgba(224,242,254,${a})`;cx.lineWidth=1.5;
+      for(let i=-3;i<=3;i++){cx.beginPath();cx.moveTo(x,114);cx.lineTo(x+i*5,BY-8);cx.stroke();}}
+    label(BINS[k].name[0]+BINS[k].name.slice(1).toLowerCase()+' jet',x,122,'#64748b',9);
+  }
+  label('④ Air-jet ejectors (fire when potato reaches its grade)',BINS.large.x,70);
+  // bins
+  for(const k in BINS){const b=BINS[k];
+    cx.save();cx.beginPath();cx.moveTo(b.x-42,266);cx.lineTo(b.x+42,266);cx.lineTo(b.x+36,360);cx.lineTo(b.x-36,360);cx.closePath();
+    cx.fillStyle=b.col+'1f';cx.fill();cx.clip();
+    b.pile.forEach((q,n)=>{const row=Math.floor(n/6),col=n%6;const x=b.x-31+col*12.4+(row%2?5:0),y=353-row*9;
+      cx.fillStyle=`hsl(${q.hue},45%,${q.light}%)`;cx.beginPath();cx.ellipse(x,y,q.r*1.2,q.r,.2,0,7);cx.fill();
+      if(q.def){cx.fillStyle='rgba(60,30,40,.8)';cx.beginPath();cx.arc(x+1,y-1,q.r*.35,0,7);cx.fill();}});
+    cx.restore();
+    cx.strokeStyle=b.col;cx.lineWidth=2;cx.beginPath();cx.moveTo(b.x-42,266);cx.lineTo(b.x-36,360);cx.lineTo(b.x+36,360);cx.lineTo(b.x+42,266);cx.stroke();
+    label(b.name,b.x,250,b.col,11,'center','bold');
+    label(b.count+' pcs · '+b.kg.toFixed(1)+' kg',b.x,262,'#cbd5e1',10);
+  }
+  label('⑤ Grade bins',BINS.large.x,376,'#94a3b8',11);
+  // potatoes
+  for(const p of ps)drawPotato(cx,p,p.x,p.y,PX,p.rot);
+  // labels
+  if(st.labels)for(const p of ps){if(!p.m||p.state!=='belt')continue;
+    const col=GCOL[p.m.grade];const t=p.m.grade==='reject'?'✕ '+p.m.reason:p.m.grade+' '+p.m.w.toFixed(0)+'mm';
+    label(t,p.x,p.y-p.w*PX/2-5,col,9,'center','bold');}
+  // chamber front
+  const inCh=ps.some(p=>p.state==='belt'&&p.x>CAM0&&p.x<CAM1);
+  if(inCh){const sx=CAM0+((simT*260)%(CAM1-CAM0));cx.strokeStyle='rgba(74,222,128,.7)';cx.lineWidth=1.5;cx.beginPath();cx.moveTo(sx,78);cx.lineTo(sx,BY);cx.stroke();}
+  cx.setLineDash([3,4]);cx.strokeStyle='rgba(56,189,248,.35)';cx.lineWidth=1;cx.beginPath();cx.moveTo(CAMC,72);cx.lineTo(CAM0+8,BY);cx.moveTo(CAMC,72);cx.lineTo(CAM1-8,BY);cx.stroke();cx.setLineDash([]);
+  cx.strokeStyle='rgba(56,189,248,.7)';cx.lineWidth=1.5;cx.strokeRect(CAM0,72,CAM1-CAM0,BY-72);
+  cx.fillStyle='#334155';cx.fillRect(CAMC-16,46,32,22);cx.fillStyle='#0f172a';cx.beginPath();cx.arc(CAMC,68,6,0,7);cx.fill();
+  cx.fillStyle=inCh?'#4ade80':'#166534';cx.beginPath();cx.arc(CAMC+10,52,2.5,0,7);cx.fill();
+  if(flash>0){cx.fillStyle=`rgba(255,255,255,${flash*0.9})`;cx.fillRect(CAM0,72,CAM1-CAM0,BY-72);}
+  label('③ Vision chamber (camera + LED)',CAMC,38);
+  if(!st.run){cx.fillStyle='rgba(0,0,0,.35)';cx.fillRect(0,0,W,H);label('PAUSED',W/2,H/2,'#fff',22,'center','bold');}
+}
+
+function drawCam(){
+  cc.fillStyle='#05080f';cc.fillRect(0,0,CW,CH);
+  cc.strokeStyle='rgba(56,189,248,.08)';cc.lineWidth=1;
+  for(let x=0;x<CW;x+=20){cc.beginPath();cc.moveTo(x,0);cc.lineTo(x,CH);cc.stroke();}
+  for(let y=0;y<CH;y+=20){cc.beginPath();cc.moveTo(0,y);cc.lineTo(CW,y);cc.stroke();}
+  cc.fillStyle='#38bdf8';cc.font='10px monospace';cc.textAlign='left';
+  cc.fillText('CAM-01  RGB 1280x720  LED ON',8,14);
+  const p=lastInsp;
+  if(!p){cc.fillStyle='#64748b';cc.font='13px system-ui';cc.textAlign='center';cc.fillText('Waiting for first potato…',CW/2,CH/2);document.getElementById('camtxt').innerHTML='';return;}
+  cc.textAlign='right';cc.fillText('ID #'+p.id,CW-8,14);
+  const s=Math.min((CW-80)/p.L,(CH-80)/p.w);
+  const ox=CW/2,oy=CH/2+4;
+  drawPotato(cc,p,ox,oy,s,camRot);
+  const bw=p.m.L*s,bh=p.m.w*s;
+  cc.setLineDash([4,3]);cc.strokeStyle='#22d3ee';cc.lineWidth=1.2;cc.strokeRect(ox-bw/2,oy-bh/2,bw,bh);cc.setLineDash([]);
+  cc.fillStyle='#22d3ee';cc.font='10px monospace';cc.textAlign='center';
+  cc.fillText('L '+p.m.L.toFixed(1)+' mm',ox,oy-bh/2-5);
+  cc.save();cc.translate(ox+bw/2+12,oy);cc.rotate(-Math.PI/2);cc.fillText('W '+p.m.w.toFixed(1)+' mm',0,0);cc.restore();
+  const rx=p.L/2*s,ry=p.w/2*s;
+  for(const d of p.m.det){const q=featPos(d,rx,ry,camRot);if(q.vis<=0.15)continue;
+    const R=Math.max(8,d.s*ry*1.4);cc.strokeStyle=d.fp?'#fbbf24':'#ef4444';cc.lineWidth=1.5;cc.strokeRect(ox+q.x-R,oy+q.y-R,R*2,R*2);
+    cc.fillStyle=d.fp?'#fbbf24':'#ef4444';cc.font='bold 9px monospace';cc.textAlign='left';cc.fillText(d.type.toUpperCase(),ox+q.x-R,oy+q.y-R-3);}
+  const col=GCOL[p.m.grade];
+  cc.fillStyle=col;cc.fillRect(0,CH-22,CW,22);
+  cc.fillStyle='#0b1020';cc.font='bold 12px system-ui';cc.textAlign='left';
+  cc.fillText('DECISION: '+p.m.grade.toUpperCase()+(p.m.reason?' ('+p.m.reason+')':''),8,CH-7);
+  cc.textAlign='right';cc.fillText('≈'+p.m.g.toFixed(0)+' g',CW-8,CH-7);
+}
+
+// ---------- UI ----------
+const SL=[
+  ['speed','Belt speed',0.1,0.5,0.05,v=>v.toFixed(2)+' m/s'],
+  ['feed','Feed rate',20,150,5,v=>v+' /min'],
+  ['defect','Defect rate in lot',0,60,1,v=>v+' %'],
+  ['acc','Vision detection accuracy',70,100,1,v=>v+' %'],
+  ['t1','Small / Medium boundary',35,55,1,v=>v+' mm'],
+  ['t2','Medium / Large boundary',56,80,1,v=>v+' mm'],
+  ['shape','Max length/width ratio',1.3,1.9,0.05,v=>v.toFixed(2)]
+];
+const sw=document.getElementById('sliders');
+SL.forEach(([k,n,mi,ma,step,f])=>{
+  const d=document.createElement('div');d.className='sl';
+  d.innerHTML=`<div class="lb"><span>${n}</span><b id="v_${k}">${f(st[k])}</b></div><input type="range" min="${mi}" max="${ma}" step="${step}" value="${st[k]}">`;
+  const inp=d.querySelector('input');
+  inp.oninput=()=>{st[k]=parseFloat(inp.value);document.getElementById('v_'+k).textContent=f(st[k]);};
+  sw.appendChild(d);
+});
+document.getElementById('play').onclick=e=>{st.run=!st.run;e.target.textContent=st.run?'⏸ Pause':'▶ Run';};
+document.getElementById('reset').onclick=()=>{reset();ui();};
+document.getElementById('fdef').onclick=()=>{st.forceDef++;};
+document.getElementById('lab').onchange=e=>{st.labels=e.target.checked;};
+document.querySelectorAll('.seg button').forEach(b=>b.onclick=()=>{document.querySelectorAll('.seg button').forEach(x=>x.classList.remove('on'));b.classList.add('on');st.mul=+b.dataset.m;});
+
+function ui(){
+  const tot=stats.total,kg=Object.values(BINS).reduce((a,b)=>a+b.kg,0);
+  const thr=simT>3?tot/simT*60:0;
+  const acc=tot?stats.correct/tot*100:0;
+  const onBelt=ps.filter(p=>p.state!=='fall').length;
+  const mm=Math.floor(simT/60),ss=Math.floor(simT%60);
+  const k=[[tot,'Graded'],[thr.toFixed(0)+'/min','Throughput'],[kg.toFixed(1)+' kg','Output'],[tot?acc.toFixed(1)+'%':'—','Grading accuracy'],[onBelt,'On belt'],[mm+':'+String(ss).padStart(2,'0'),'Sim time']];
+  document.getElementById('kpis').innerHTML=k.map(([v,n])=>`<div class="kpi"><div class="v">${v}</div><div class="k">${n}</div></div>`).join('');
+  document.getElementById('bars').innerHTML=['large','medium','small','reject'].map(g=>{const b=BINS[g],pc=tot?b.count/tot*100:0;
+    return `<div class="bar"><div class="t"><span style="color:${b.col};font-weight:600">${b.name}</span><span>${b.count} · ${pc.toFixed(1)}% · ${b.kg.toFixed(1)} kg</span></div><div class="tr"><div class="f" style="width:${pc}%;background:${b.col}"></div></div></div>`;}).join('');
+  const r=stats.reasons;
+  document.getElementById('reasons').innerHTML=`Reject reasons: defect <b>${r.defect}</b> · misshapen <b>${r.misshapen}</b> · undersize <b>${r.undersize}</b><br>Missed defects (bad potato passed): <b class="bad">${stats.missed}</b> · False alarms (good potato rejected): <b style="color:#fbbf24">${stats.falseAlarm}</b>`;
+  const p=lastInsp;
+  if(p){
+    const tr=p.defs.length?p.defs.map(d=>d.type).join(', '):'none';
+    const dt=p.m.det.length?p.m.det.map(d=>d.type+(d.fp?' (false alarm)':'')).join(', '):'none';
+    const ok=p.m.grade===p.trueGrade;
+    document.getElementById('camtxt').innerHTML=
+      `Width <b>${p.m.w.toFixed(1)} mm</b> · Length <b>${p.m.L.toFixed(1)} mm</b> · Ratio <b>${p.m.el.toFixed(2)}</b> · Weight <b>≈${p.m.g.toFixed(0)} g</b><br>
+       Detected defects: <b>${dt}</b><br>
+       <span class="mut">Ground truth: ${tr} → ${p.trueGrade.toUpperCase()}</span> ${ok?'<span class="ok">✓ correct</span>':'<span class="bad">✕ misgraded</span>'}`;
+  }
+  document.getElementById('log').innerHTML='<tr><th>ID</th><th>W × L (mm)</th><th>Weight</th><th>Defects found</th><th>Decision</th><th>Truth</th></tr>'+
+    log.map(p=>`<tr><td>#${p.id}</td><td>${p.m.w.toFixed(1)} × ${p.m.L.toFixed(1)}</td><td>${p.m.g.toFixed(0)} g</td><td>${p.m.det.length?p.m.det.map(d=>d.type).join(', '):'—'}</td><td><span class="badge" style="background:${GCOL[p.m.grade]}">${p.m.grade}</span></td><td class="${p.m.grade===p.trueGrade?'ok':'bad'}">${p.m.grade===p.trueGrade?'✓':'✕ '+p.trueGrade}</td></tr>`).join('');
+}
+
+// ---------- loop ----------
+let last=performance.now();
+function loop(t){
+  const dt=Math.min(.05,(t-last)/1000);last=t;
+  if(st.run)for(let i=0;i<st.mul;i++)update(dt);
+  draw();drawCam();
+  uiT+=dt;if(uiT>.25){uiT=0;ui();}
+  requestAnimationFrame(loop);
+}
+ui();requestAnimationFrame(loop);
+</script>
+</body>
+</html>
