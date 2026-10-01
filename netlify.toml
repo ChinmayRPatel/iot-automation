@@ -6,6 +6,9 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # The business email is meant to be public (shown on the website),
+  # so don't treat it as a secret. GMAIL_APP_PASSWORD is still scanned.
+  SECRETS_SCAN_OMIT_KEYS = "GMAIL_USER,RECEIVER_EMAIL"
 
 [functions]
   node_bundler = "esbuild"
